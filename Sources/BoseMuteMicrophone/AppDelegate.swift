@@ -125,6 +125,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let before = controller.reports
             controller.enforce()
             if before != controller.reports { log.add("Mudança de áudio enquanto mutado: " + deviceSummary()) }
+        } else if controller.isWatchingRestore {
+            let before = controller.restoreReapplied.count
+            controller.enforce()
+            if controller.restoreReapplied.count > before {
+                log.add("Driver mudou o valor após o unmute; restaurado de novo: " +
+                        controller.restoreReapplied.suffix(from: before).joined(separator: ", "))
+            }
+        } else if enforceTimer != nil {
+            refreshEnforceTimer() // restore watch over: stop the timer
         }
         updateIcon()
     }
@@ -132,7 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refreshEnforceTimer() {
         enforceTimer?.invalidate()
         enforceTimer = nil
-        guard controller.isMuted else { return }
+        guard controller.isMuted || controller.isWatchingRestore else { return }
         // Safety net in addition to Core Audio listeners.
         enforceTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.audioChanged() }
     }
@@ -255,6 +264,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             loginItem.title += " (aprovar em Ajustes > Itens de Início)"
         }
         menu.addItem(loginItem)
+        let siriItem = NSMenuItem(title: "Abrir ajustes da Siri…", action: #selector(openSiriSettings), keyEquivalent: "")
+        siriItem.target = self
+        siriItem.toolTip = "O atalho do Bose também aciona a Siri; o app não altera ajustes do sistema."
+        menu.addItem(siriItem)
         let soundItem = NSMenuItem(title: "Sons de mute/unmute", action: #selector(toggleSounds), keyEquivalent: "")
         soundItem.target = self
         soundItem.state = soundsEnabled ? .on : .off
@@ -298,6 +311,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func toggleLaunchAtLogin() { setLaunchAtLogin(!launchAtLogin) }
+
+    @objc private func openSiriSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+    }
 
     @objc private func toggleSounds() { soundsEnabled.toggle() }
 

@@ -62,3 +62,14 @@ Quitting while muted restored all values and removed the snapshot file. The Bose
 On the first launch (23:28:08) the app muted every input without being asked. `log stream` prints a header line ("Filtering the log data using … Received voice recognition event from device …") that contains the marker text, and the parser took it for a button press. No input was in use at the time. The app was quit 9 s later, and the values were restored and checked.
 
 Fix: the parser now requires a full Bluetooth address after the marker and ignores the header. A regression test covers it (`testIgnoresLogStreamHeaderThatContainsTheMarker`).
+
+## 5. Field test 2026-10-15 (Shortcut reaching the Mac)
+
+With the phone link in its normal state, the Shortcut reached the Mac at 14:11, 14:29 and 14:30. Each press also started Siri: macOS opened an HFP/SCO link ("Making sco connection for playing voice-command") for 4–8 s.
+
+Two problems were found and fixed:
+
+1. **Double toggle.** bluetoothd logs two lines for one press. The second line was counted too, because the debounce clock was read only after a slow toggle (verifying a virtual device that ignores writes takes about 0.6 s). The result was mute followed immediately by unmute. The app now counts only the voice-recognition line and timestamps log data on arrival.
+2. **Driver drift after unmute.** The unmute at 14:29:56 was written and read back as 0. Afterwards the Bose input read mute = 1 again, with no write from the app. The only nearby event was Siri's SCO link (14:29:56–14:30:04). Hypothesis: the Bluetooth driver keeps the mute written while SCO was active and puts it back when the link changes. When the device was idle, a 10 s watch after writing 0 showed no drift. The app now watches restored values for 20 s after each unmute and applies the restore again if the driver changes them.
+
+**Siri.** The Shortcut always asks macOS to start Siri; the app cannot prevent that. The app does not change system settings itself. It offers "Abrir ajustes da Siri…" in the menu. It is not yet tested whether the headset still sends the event, or bluetoothd still logs it, with Siri turned off.

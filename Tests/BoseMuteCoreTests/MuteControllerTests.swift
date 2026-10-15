@@ -54,6 +54,27 @@ final class MuteControllerTests: XCTestCase {
         XCTAssertTrue(c.lastRestoreIssues.isEmpty)
     }
 
+    func testDriverDriftAfterUnmuteIsRestoredDuringWatch() {
+        // Observed: Siri's SCO link flipped the Bose input back to mute = 1 after a verified restore.
+        let b = FakeBackend()
+        b.add("bose", mute: false)
+        let c = MuteController(backend: b)
+        c.verifyTimeout = 0
+        var clock = Date()
+        c.now = { clock }
+        c.mute()
+        c.unmute()
+        b.devices["bose"]!.state.mute = true
+        c.enforce()
+        XCTAssertEqual(b.devices["bose"]!.state.mute, false)
+        XCTAssertEqual(c.restoreReapplied, ["bose"])
+        clock = clock.addingTimeInterval(30)
+        b.devices["bose"]!.state.mute = true // user mutes elsewhere later: not ours to undo
+        c.enforce()
+        XCTAssertEqual(b.devices["bose"]!.state.mute, true)
+        XCTAssertFalse(c.isWatchingRestore)
+    }
+
     func testIgnoredDeviceIsNeitherTouchedNorCounted() {
         let b = FakeBackend()
         b.add("bose")

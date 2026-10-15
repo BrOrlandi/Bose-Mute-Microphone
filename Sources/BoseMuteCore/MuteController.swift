@@ -57,6 +57,19 @@ public final class MuteController {
     private let tolerance: Float = 0.001
     /// Some drivers apply writes asynchronously; read back for up to this long before giving up.
     public var verifyTimeout: TimeInterval = 0.3
+    /// After unmute, keep checking restored devices for this long. Observed on the Bose QC Ultra 2:
+    /// the Shortcut press that unmutes also starts Siri, which opens/closes an HFP (SCO) link, and
+    /// the Bluetooth driver then reported mute = 1 again although the restore had been verified.
+    public var restoreWatchDuration: TimeInterval = 20
+    public var now: () -> Date = Date.init
+    private var restoreWatch: (snapshots: [DeviceSnapshot], until: Date)?
+    public private(set) var restoreReapplied: [String] = []
+
+    /// True while restored values are still being watched (the app keeps its timer running).
+    public var isWatchingRestore: Bool {
+        guard let watch = restoreWatch else { return false }
+        return now() < watch.until
+    }
     /// Called whenever `snapshots` changes so they can be persisted (crash safety).
     public var onSnapshotsChanged: (([DeviceSnapshot]) -> Void)?
 
@@ -89,6 +102,7 @@ public final class MuteController {
     public func mute() {
         guard !isMuted else { enforce(); return }
         isMuted = true
+        restoreWatch = nil
         lastRestoreIssues = []
         reports = [:]
         for device in backend.inputDevices() {
@@ -112,6 +126,8 @@ public final class MuteController {
                 issues.append(RestoreIssue(name: snapshot.name, reason: reason))
             }
         }
+        restoreWatch = (Array(snapshots.values), now().addingTimeInterval(restoreWatchDuration))
+        restoreReapplied = []
         snapshots = [:]
         reports = [:]
         lastRestoreIssues = issues
@@ -132,7 +148,7 @@ public final class MuteController {
     /// Re-checks every device while muted: mutes devices that appeared (or were re-plugged)
     /// and re-applies mute where something else changed it back.
     public func enforce() {
-        guard isMuted else { return }
+        guard isMuted else { enforceRestore(); return }
         let devices = backend.inputDevices()
         var changed = false
         for device in devices {
@@ -158,6 +174,32 @@ public final class MuteController {
         let presentUIDs = Set(devices.map(\.uid))
         reports = reports.filter { presentUIDs.contains($0.key) }
         if changed { onSnapshotsChanged?(Array(snapshots.values)) }
+    }
+
+    /// While the restore watch is active, puts back any value the driver changed after unmute.
+    private func enforceRestore() {
+        guard let watch = restoreWatch else { return }
+        guard now() < watch.until else { restoreWatch = nil; return }
+        let present = Dictionary(backend.inputDevices().map { ($0.uid, $0) }, uniquingKeysWith: { a, _ in a })
+        for snapshot in watch.snapshots {
+            guard let method = snapshot.method, let device = present[snapshot.uid] else { continue }
+            let state = backend.readState(of: device)
+            let drifted: Bool
+            switch method {
+            case .muteProperty:
+                drifted = state.mute != (snapshot.original.mute ?? false)
+            case .volumeZero:
+                drifted = snapshot.original.volumes.contains { key, value in
+                    guard let actual = state.volumes[key] else { return false }
+                    return abs(actual - value) > 0.01
+                }
+            }
+            guard drifted else { continue }
+            if let reason = restore(snapshot, method: method, on: device) {
+                lastRestoreIssues.append(RestoreIssue(name: snapshot.name, reason: "re-restauração falhou: \(reason)"))
+            }
+            restoreReapplied.append(snapshot.name)
+        }
     }
 
     // MARK: Private
