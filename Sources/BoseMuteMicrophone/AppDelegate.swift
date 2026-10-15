@@ -264,9 +264,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             loginItem.title += " (aprovar em Ajustes > Itens de Início)"
         }
         menu.addItem(loginItem)
-        let siriItem = NSMenuItem(title: "Abrir ajustes da Siri…", action: #selector(openSiriSettings), keyEquivalent: "")
+        if siriEnabled != false {
+            // Tested 2026-10-15: with Siri off the Shortcut still reaches the Mac and Siri stays closed.
+            menu.addItem(disabled("  Dica: com a Siri ligada, o atalho do Bose também a abre."))
+        }
+        let siriItem = NSMenuItem(title: siriEnabled == false ? "Siri: desligada (abrir ajustes…)" : "Desligar a Siri nos ajustes…",
+                                  action: #selector(openSiriSettings), keyEquivalent: "")
         siriItem.target = self
-        siriItem.toolTip = "O atalho do Bose também aciona a Siri; o app não altera ajustes do sistema."
+        siriItem.toolTip = "O app só abre a tela de ajustes; não altera configurações do sistema."
         menu.addItem(siriItem)
         let soundItem = NSMenuItem(title: "Sons de mute/unmute", action: #selector(toggleSounds), keyEquivalent: "")
         soundItem.target = self
@@ -311,6 +316,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func toggleLaunchAtLogin() { setLaunchAtLogin(!launchAtLogin) }
+
+    /// Read-only look at the system Siri switch; nil when it cannot be read.
+    private var siriEnabled: Bool? {
+        CFPreferencesCopyAppValue("Assistant Enabled" as CFString, "com.apple.assistant.support" as CFString) as? Bool
+    }
 
     @objc private func openSiriSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension") {
