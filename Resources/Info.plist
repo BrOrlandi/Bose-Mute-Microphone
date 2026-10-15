@@ -8,6 +8,8 @@
 	<string>Bose-Mute-Microphone</string>
 	<key>CFBundleDisplayName</key>
 	<string>Bose Mute Microphone</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleExecutable</key>
 	<string>BoseMuteMicrophone</string>
 	<key>CFBundlePackageType</key>

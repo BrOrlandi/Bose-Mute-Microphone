@@ -35,6 +35,7 @@ Requires macOS 13+ and Xcode / Swift 5.10+.
 swift test                 # unit tests (fake Core Audio backend)
 ./scripts/build-app.sh     # build/Bose-Mute-Microphone.app (release, ad-hoc signed)
 ./scripts/install.sh       # build + copy to ~/Applications + (re)launch
+swift scripts/make-icon.swift   # regenerate Resources/AppIcon.icns (only after changing the drawing)
 ```
 
 Diagnostics CLI:
