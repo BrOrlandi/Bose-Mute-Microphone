@@ -252,9 +252,10 @@ final class BoseButtonMonitorTests: XCTestCase {
         XCTAssertNil(BoseButtonMonitor.parse(line: #"{"eventMessage":"Received voice recognition event from device <private>"}"#))
     }
 
-    func testParsesStartVoiceCommandLine() {
-        let line = #"{"eventMessage":"Received 'start voice command' event for device AA:BB:CC:11:22:33"}"#
-        XCTAssertEqual(BoseButtonMonitor.parse(line: line), "AA:BB:CC:11:22:33")
+    func testOnlyOneLinePerPressCounts() {
+        // Regression: bluetoothd logs both lines for one press; counting both toggled mute off again.
+        let second = #"{"eventMessage":"Received 'start voice command' event for device AA:BB:CC:11:22:33"}"#
+        XCTAssertNil(BoseButtonMonitor.parse(line: second))
         XCTAssertNil(BoseButtonMonitor.parse(line: #"{"eventMessage":"Received voice disconnection event for device AA:BB:CC:11:22:33"}"#))
     }
 

@@ -13,10 +13,11 @@ import Foundation
 /// still delivered to Siri (not intercepted); any HFP headset sending BVRA matches unless an
 /// address filter is set.
 public final class BoseButtonMonitor {
-    /// bluetoothd logs both lines for one press; the debounce collapses them.
+    /// bluetoothd logs two lines per press ("Received voice recognition event…" and
+    /// "Received 'start voice command' event…"). Only the first one counts, so a single press can
+    /// never toggle twice even if processing the first one is slow.
     public static let markers = [
         "Received voice recognition event from device",
-        "Received 'start voice command' event for device",
     ]
     /// Also streams the HFP call/SCO state lines so the menu can explain why a press may not arrive
     /// (e.g. the headset does not offer voice control while a call/SCO link is up).
@@ -35,7 +36,7 @@ public final class BoseButtonMonitor {
     public private(set) var lastEvent: (date: Date, address: String)?
     /// Uppercased Bluetooth address; nil accepts any device.
     public var addressFilter: String?
-    public var debounce: TimeInterval = 0.8
+    public var debounce: TimeInterval = 1.5
     public var onPress: ((String) -> Void)?
     public var onStateChange: ((State) -> Void)?
     /// Other HFP lines (call status, SCO) for the diagnostic log.
@@ -71,7 +72,10 @@ public final class BoseButtonMonitor {
         pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
-            DispatchQueue.main.async { self?.consume(data) }
+            // Timestamp on arrival, not after the main queue finishes earlier work (a toggle can
+            // block for a moment while drivers are verified).
+            let arrival = Date()
+            DispatchQueue.main.async { self?.consume(data, at: arrival) }
         }
         p.terminationHandler = { [weak self] proc in
             DispatchQueue.main.async {
@@ -94,14 +98,14 @@ public final class BoseButtonMonitor {
         onStateChange?(s)
     }
 
-    private func consume(_ data: Data) {
+    private func consume(_ data: Data, at arrival: Date) {
         buffer.append(data)
         while let newline = buffer.firstIndex(of: 0x0A) {
             let line = buffer[buffer.startIndex..<newline]
             buffer.removeSubrange(buffer.startIndex...newline)
             guard let text = String(data: line, encoding: .utf8) else { continue }
             if let address = Self.parse(line: text) {
-                handle(address: address, at: Date())
+                handle(address: address, at: arrival)
             } else if let message = Self.eventMessage(text) {
                 onDiagnostic?(message)
             }
