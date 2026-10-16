@@ -33,7 +33,7 @@ Then set up the headset and the Mac:
   <img src="docs/images/tutorial/bose-shortcut.gif" alt="Touch and hold the volume strip on the right ear cup for about 2 s to mute; repeat to unmute" width="540">
 </p>
 
-Still slides: [1](docs/images/tutorial/slide-1.png) · [2](docs/images/tutorial/slide-2.png) · [3](docs/images/tutorial/slide-3.png) · [4](docs/images/tutorial/slide-4.png). They are drawn by `scripts/make-tutorial.swift`; run it with `slides` or `gif`.
+Still slides: [1](docs/images/tutorial/slide-1.png) · [2](docs/images/tutorial/slide-2.png) · [3](docs/images/tutorial/slide-3.png) · [4](docs/images/tutorial/slide-4.png). They are drawn by `scripts/make-tutorial.swift`; run it with `slides` or `gif`. The hand was generated once with Gemini "Nano Banana 2" (`gemini-3.1-flash-image`) as line art and is stored in `docs/images/tutorial/assets/hand-source.png`. The script makes its background transparent; everything else is drawn in code.
 
 | Trigger | How |
 |---|---|
