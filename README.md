@@ -1,6 +1,8 @@
-# Bose-Mute-Microphone
+<p align="center">
+  <img src="Resources/AppIcon-1024.png" alt="Bose-Mute-Microphone icon" width="160">
+</p>
 
-<img src="Resources/AppIcon-1024.png" alt="App icon" width="128" align="right">
+<h1 align="center">Bose-Mute-Microphone</h1>
 
 A native macOS menu bar app (Swift, AppKit, Core Audio) that mutes every microphone on the Mac at once, from the Shortcut gesture of the **Bose QuietComfort Ultra Headphones (2nd Gen)**, from a keyboard shortcut, or from the menu.
 
