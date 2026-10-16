@@ -25,7 +25,7 @@ A native macOS menu bar app (Swift, AppKit, Core Audio) that mutes every microph
   - Quitting restores the previous state.
   - Pre-mute values are saved to `~/Library/Application Support/Bose-Mute-Microphone/mute-snapshot.json`, so after a crash the next launch resumes the muted state and can restore it.
 - **Ignore devices**: a submenu excludes devices such as virtual loopbacks that ignore mute.
-- **Siri**: the Shortcut asks macOS for Siri. With Siri turned off in System Settings, the press still reaches the app and Siri stays closed (tested). The menu shows a tip and opens the settings; the app never changes the setting itself.
+- **Siri**: each Shortcut press makes macOS start Siri, and no public API can stop that. **Keep Siri on.** With Siri off, nobody answers the headset's voice request and it stops sending presses until it reconnects (tested 3 times). The app closes the Siri that a Bose press opened (menu "Fechar a Siri aberta pelo atalho do Bose", on by default). It first asks Siri to quit and force-quits only if Siri ignores that; macOS relaunches it on demand. Siri flashes for about 1 s. Siri started any other way is left alone.
 - **Start with the Mac**: the app registers itself as a Login Item (`SMAppService.mainApp`) on first run. The menu checkbox toggles it.
 
 ## Build, install, run

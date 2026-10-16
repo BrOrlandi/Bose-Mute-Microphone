@@ -19,6 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         get { defaults.object(forKey: "soundsEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "soundsEnabled") }
     }
+    private let siriCanceller = SiriCanceller()
+    private var cancelSiriEnabled: Bool {
+        // On by default: tested 2026-10-16, four presses in a row toggled reliably with Siri closed each time.
+        get { defaults.object(forKey: "cancelSiriAfterBose") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "cancelSiriAfterBose") }
+    }
     private var boseEnabled: Bool {
         get { defaults.object(forKey: "boseShortcutEnabled") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "boseShortcutEnabled") }
@@ -51,12 +57,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hotKey = HotKey { [weak self] in self?.toggle(source: "atalho ⌃⌥⌘M") }
         if hotKey == nil { log.add("Atalho ⌃⌥⌘M indisponível (já registrado por outro app?).") }
 
-        bose.onPress = { [weak self] address in self?.toggle(source: "Bose (HFP voice recognition \(address))") }
+        siriCanceller.log = { [weak self] in self?.log.add($0) }
+        bose.onPress = { [weak self] address in
+            guard let self else { return }
+            if self.cancelSiriEnabled { self.siriCanceller.arm() }
+            self.toggle(source: "Bose (HFP voice recognition \(address))")
+        }
         bose.onStateChange = { [weak self] state in
             self?.log.add("Monitor Bose: \(state)")
             self?.updateIcon()
         }
-        bose.onDiagnostic = { [weak self] message in self?.log.add("HFP: \(message)") }
+        bose.onDiagnostic = { [weak self] message in
+            self?.log.add("HFP: \(message)")
+            self?.siriCanceller.observe(message)
+        }
         if boseEnabled { bose.start() }
 
         log.add("App iniciado. Dispositivos: " + backend.inputDevices().map(\.name).joined(separator: ", "))
@@ -264,15 +278,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             loginItem.title += " (aprovar em Ajustes > Itens de Início)"
         }
         menu.addItem(loginItem)
-        if siriEnabled != false {
-            // Tested 2026-10-15: with Siri off the Shortcut still reaches the Mac and Siri stays closed.
-            menu.addItem(disabled("  Dica: com a Siri ligada, o atalho do Bose também a abre."))
+        if siriEnabled == false {
+            // Tested 2026-10-15/16: with Siri off nobody answers the headset's voice request and it
+            // stops sending presses until it reconnects.
+            menu.addItem(disabled("  ⚠︎ Siri desligada: o atalho do Bose para após 1 toque. Ligue a Siri."))
+        } else {
+            if !cancelSiriEnabled {
+                menu.addItem(disabled("  Dica: com a Siri ligada, o atalho do Bose também a abre."))
+            }
         }
-        let siriItem = NSMenuItem(title: siriEnabled == false ? "Siri: desligada (abrir ajustes…)" : "Desligar a Siri nos ajustes…",
+        let siriItem = NSMenuItem(title: "Abrir ajustes da Siri…",
                                   action: #selector(openSiriSettings), keyEquivalent: "")
         siriItem.target = self
         siriItem.toolTip = "O app só abre a tela de ajustes; não altera configurações do sistema."
         menu.addItem(siriItem)
+        let cancelItem = NSMenuItem(title: "Fechar a Siri aberta pelo atalho do Bose",
+                                    action: #selector(toggleCancelSiri), keyEquivalent: "")
+        cancelItem.target = self
+        cancelItem.state = cancelSiriEnabled ? .on : .off
+        menu.addItem(cancelItem)
         let soundItem = NSMenuItem(title: "Sons de mute/unmute", action: #selector(toggleSounds), keyEquivalent: "")
         soundItem.target = self
         soundItem.state = soundsEnabled ? .on : .off
@@ -326,6 +350,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    @objc private func toggleCancelSiri() {
+        cancelSiriEnabled.toggle()
+        log.add("Cancelar a Siri após o atalho do Bose: \(cancelSiriEnabled ? "ligado" : "desligado").")
     }
 
     @objc private func toggleSounds() { soundsEnabled.toggle() }
