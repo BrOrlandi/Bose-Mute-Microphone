@@ -30,7 +30,7 @@ Then set up the headset and the Mac:
 ## Using it
 
 <p align="center">
-  <img src="docs/images/tutorial/bose-shortcut.gif" alt="Touch and hold the volume strip on the right ear cup for about 2 s to mute; repeat to unmute" width="720">
+  <img src="docs/images/tutorial/bose-shortcut.gif" alt="Touch and hold the volume strip on the right ear cup for about 2 s to mute; repeat to unmute" width="540">
 </p>
 
 Still slides: [1](docs/images/tutorial/slide-1.png) · [2](docs/images/tutorial/slide-2.png) · [3](docs/images/tutorial/slide-3.png) · [4](docs/images/tutorial/slide-4.png). They are drawn by `scripts/make-tutorial.swift`; run it with `slides` or `gif`.
@@ -163,7 +163,7 @@ scripts/
   build-app.sh             release build → build/Bose-Mute-Microphone.app (ad-hoc signed)
   install.sh               build + install to ~/Applications + relaunch
   make-icon.swift          draws the icon with Core Graphics → AppIcon.icns
-  make-tutorial.swift      draws the Shortcut tutorial → docs/images/tutorial (slides + GIF)
+  make-tutorial.swift      draws the Shortcut tutorial (black-and-white line art) → docs/images/tutorial
 docs/DIAGNOSTICO.md        hardware/driver investigation with log evidence
 ```
 
