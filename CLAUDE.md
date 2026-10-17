@@ -1,6 +1,6 @@
 # Bose-Mute-Microphone
 
-macOS menu bar app (Swift Package, AppKit, Core Audio). See README.md for architecture and docs/DIAGNOSTICO.md for the hardware investigation.
+macOS menu bar app (Swift Package, AppKit, Core Audio). README.md is the product page (what it does, install, use); keep implementation detail out of it. Internals: docs/TECHNICAL.md. Build, test, release, project layout: docs/DEVELOPMENT.md. Hardware investigation: docs/DIAGNOSTICO.md.
 
 ## Release & Changelog
 

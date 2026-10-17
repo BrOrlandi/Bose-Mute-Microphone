@@ -26,7 +26,7 @@
         { "channel": "git-tag" },
         { "channel": "github-release", "notesFrom": "CHANGELOG.md", "assets": ["build/Bose-Mute-Microphone-{version}.dmg"], "latest": true }
       ],
-      "docs": ["README.md#development", "CLAUDE.md#release--changelog"]
+      "docs": ["docs/DEVELOPMENT.md#releasing", "CLAUDE.md#release--changelog"]
     }
   ]
 }
