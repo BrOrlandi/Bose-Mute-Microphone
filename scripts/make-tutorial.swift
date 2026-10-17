@@ -31,7 +31,7 @@ struct Scene {
     var level: CGFloat { speaking ? (1 - slash) * (0.35 + 0.65 * abs(sin(time * 1.7) * sin(time * 0.6 + 1))) : 0 }
 }
 
-let touchPoint = CGPoint(x: 662, y: 420)
+let touchPoint = CGPoint(x: 660, y: 420)
 
 func ease(_ t: CGFloat) -> CGFloat { let t = max(0, min(1, t)); return t * t * (3 - 2 * t) }
 
@@ -106,18 +106,25 @@ func drawHeadphones(_ ctx: CGContext) {
     stroke(ctx, ellipse(CGPoint(x: 560, y: 436), 92, 138, rotation: 0.10), line, 3.2, fill: paper)
     stroke(ctx, ellipse(CGPoint(x: 556, y: 438), 70, 112, rotation: 0.10), line.withAlphaComponent(0.55), 2)
 
-    // back edge details: mic grille dots, button, Bluetooth button
+    // back edge, the band between the outer plate and the shell (its midline runs from about
+    // x 658 at y 340 to x 677 at y 420 and x 653 at y 520): mic grille dots at the top, the volume
+    // strip on the inner side, then the button and the Bluetooth button on the outer side.
     ctx.setFillColor(line.cgColor)
     for i in 0..<5 { for j in 0..<2 {
-        ctx.fillEllipse(in: CGRect(x: 664 + CGFloat(j) * 8 + CGFloat(i) * 1.6, y: 316 + CGFloat(i) * 8, width: 4.5, height: 4.5))
+        let y = 318 + CGFloat(i) * 7.5
+        ctx.fillEllipse(in: CGRect(x: 650 + CGFloat(i) * 2.2 + CGFloat(j) * 8, y: y, width: 4.5, height: 4.5))
     } }
-    stroke(ctx, CGPath(roundedRect: CGRect(x: 676, y: 474, width: 15, height: 40), cornerWidth: 7.5, cornerHeight: 7.5, transform: nil), line, 2.6)
-    stroke(ctx, CGPath(roundedRect: CGRect(x: 670, y: 534, width: 17, height: 21), cornerWidth: 7, cornerHeight: 7, transform: nil), line, 2.6)
+    func pill(_ c: CGPoint, _ w: CGFloat, _ h: CGFloat, angle: CGFloat) {
+        var t = CGAffineTransform(translationX: c.x, y: c.y).rotated(by: angle)
+        stroke(ctx, CGPath(roundedRect: CGRect(x: -w / 2, y: -h / 2, width: w, height: h), cornerWidth: w / 2, cornerHeight: min(w, h) / 2, transform: &t), line, 2.6)
+    }
+    pill(CGPoint(x: 678, y: 468), 13, 36, angle: 0.22)
+    pill(CGPoint(x: 660, y: 526), 15, 18, angle: 0.35)
 
-    // volume strip: a curved slot along the back edge
+    // volume strip: a curved slot along the inner side of the back edge
     let strip = CGMutablePath()
-    strip.move(to: CGPoint(x: 650, y: 352))
-    strip.addCurve(to: CGPoint(x: 654, y: 492), control1: CGPoint(x: 668, y: 390), control2: CGPoint(x: 666, y: 450))
+    strip.move(to: CGPoint(x: 652, y: 360))
+    strip.addCurve(to: CGPoint(x: 652, y: 486), control1: CGPoint(x: 667, y: 395), control2: CGPoint(x: 666, y: 450))
     stroke(ctx, strip, ink, 12)
     stroke(ctx, strip, paper, 6)
 }
@@ -284,7 +291,7 @@ func render(_ scene: Scene, scale: CGFloat) -> CGImage {
     // illustration panel; fades out at the bottom so the neck does not run into the text
     ctx.saveGState()
     ctx.addRect(CGRect(x: 0, y: 0, width: W, height: 640)); ctx.clip()
-    ctx.translateBy(x: 0, y: -40)   // art sits a little higher now that the menu bar is below it
+    ctx.translateBy(x: -60, y: -40)   // centre the art horizontally and lift it above the menu bar
     stroke(ctx, headPath(), faint, 3)
     if scene.speaking { drawVoice(ctx, time: scene.time) }
     drawHeadphones(ctx)
