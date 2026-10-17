@@ -3,6 +3,7 @@
 // (no brand logos). Usage (from the repository root):
 //   swift scripts/make-tutorial.swift slides   -> docs/images/tutorial/slide-N.png (1080x1080)
 //   swift scripts/make-tutorial.swift gif      -> docs/images/tutorial/bose-shortcut.gif (540x540)
+//   swift scripts/make-tutorial.swift video    -> docs/images/tutorial/bose-shortcut.mp4 (1080x1080, 30 fps, needs ffmpeg)
 import AppKit
 import ImageIO
 import UniformTypeIdentifiers
@@ -325,35 +326,60 @@ let slides: [Scene] = [
     Scene(step: 4, finger: 1, hold: 0.65, muted: true, time: 3.1, slash: 1),
 ]
 
-func timeline() -> [(Scene, Double)] {
+/// Animation timeline. `sub` subdivides every 0.1 s step: 1 for the GIF (10 fps), 3 for the video (30 fps).
+func timeline(sub: Int = 1) -> [(Scene, Double)] {
     var f: [(Scene, Double)] = []
-    let d = 0.1
+    let d = 0.1 / Double(sub)
     var t: CGFloat = 0
-    func add(_ s: Scene, _ delay: Double = d) { var s = s; s.time = t; f.append((s, delay)); t += CGFloat(delay) }
-    for i in 0..<30 { add(Scene(step: 1, pulse: 0.5 + 0.5 * sin(CGFloat(i) / 30 * .pi * 6))) }
-    for i in 0..<8 { add(Scene(step: 2, finger: CGFloat(i + 1) / 8)) }
-    for i in 0...20 { add(Scene(step: 2, finger: 1, hold: CGFloat(i) / 20)) }
-    for i in 0..<34 {   // slash draws in, falling tone, hand leaves, voice continues but nothing is picked up
-        add(Scene(step: 3, finger: max(0, 1 - CGFloat(i) / 7), muted: true, cue: .down,
-                  cuePhase: min(1, CGFloat(i) / 12), slash: min(1, CGFloat(i + 1) / 7)))
+    func add(_ s: Scene) { var s = s; s.time = t; f.append((s, d)); t += CGFloat(d) }
+    /// `count` steps of 0.1 s, each subdivided; yields the (fractional) step index.
+    func steps(_ count: Int, _ body: (CGFloat) -> Void) {
+        for k in 0..<(count * sub) { body(CGFloat(k) / CGFloat(sub)) }
     }
-    for i in 0..<8 { add(Scene(step: 4, finger: CGFloat(i + 1) / 8, muted: true, slash: 1)) }
-    for i in 0...20 { add(Scene(step: 4, finger: 1, hold: CGFloat(i) / 20, muted: true, slash: 1)) }
-    for i in 0..<30 {   // slash goes away, rising tone, the mic picks up the voice again
-        add(Scene(step: 4, finger: max(0, 1 - CGFloat(i) / 7), muted: false, cue: .up,
-                  cuePhase: min(1, CGFloat(i) / 12), slash: max(0, 1 - CGFloat(i + 1) / 7)))
+    steps(30) { i in add(Scene(step: 1, pulse: 0.5 + 0.5 * sin(i / 30 * .pi * 6))) }
+    steps(8) { i in add(Scene(step: 2, finger: min(1, (i + 1) / 8))) }
+    steps(21) { i in add(Scene(step: 2, finger: 1, hold: min(1, i / 20))) }
+    steps(34) { i in   // slash draws in, falling tone, hand leaves, voice continues but nothing is picked up
+        add(Scene(step: 3, finger: max(0, 1 - i / 7), muted: true, cue: .down,
+                  cuePhase: min(1, i / 12), slash: min(1, (i + 1) / 7)))
+    }
+    steps(8) { i in add(Scene(step: 4, finger: min(1, (i + 1) / 8), muted: true, slash: 1)) }
+    steps(21) { i in add(Scene(step: 4, finger: 1, hold: min(1, i / 20), muted: true, slash: 1)) }
+    steps(30) { i in   // slash goes away, rising tone, the mic picks up the voice again
+        add(Scene(step: 4, finger: max(0, 1 - i / 7), muted: false, cue: .up,
+                  cuePhase: min(1, i / 12), slash: max(0, 1 - (i + 1) / 7)))
     }
     return f
 }
 
 let outDir = "docs/images/tutorial"
 try FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
-if (CommandLine.arguments.dropFirst().first ?? "slides") == "slides" {
+let mode = CommandLine.arguments.dropFirst().first ?? "slides"
+if mode == "slides" {
     for (i, scene) in slides.enumerated() {
         let path = "\(outDir)/slide-\(i + 1).png"
         writePNG(render(scene, scale: 1), to: path)
         print(path)
     }
+} else if mode == "video" {
+    // 1080x1080 at 30 fps, H.264 (needs ffmpeg). Frames go to a temp dir, then get encoded.
+    let fps = 30
+    var frames = timeline(sub: fps / 10)
+    if let last = frames.last { frames += Array(repeating: last, count: fps * 3 / 2) }   // hold the end for 1.5 s
+    let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("bose-tutorial-\(getpid())")
+    try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tmp) }
+    for (i, (scene, _)) in frames.enumerated() {
+        writePNG(render(scene, scale: 1), to: tmp.appendingPathComponent(String(format: "f%05d.png", i)).path)
+    }
+    let path = "\(outDir)/bose-shortcut.mp4"
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+    p.arguments = ["ffmpeg", "-y", "-loglevel", "error", "-framerate", "\(fps)", "-i", tmp.appendingPathComponent("f%05d.png").path,
+                   "-c:v", "libx264", "-preset", "slow", "-tune", "animation", "-crf", "24",
+                   "-pix_fmt", "yuv420p", "-movflags", "+faststart", path]
+    try p.run(); p.waitUntilExit()
+    print(p.terminationStatus == 0 ? "\(path) (\(frames.count) frames)" : "ffmpeg failed")
 } else {
     let frames = timeline()
     let path = "\(outDir)/bose-shortcut.gif"

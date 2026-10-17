@@ -41,6 +41,7 @@ The GIF and slides in `docs/images/tutorial/` are drawn by `scripts/make-tutoria
 ```sh
 swift scripts/make-tutorial.swift slides   # docs/images/tutorial/slide-1..4.png (1080x1080)
 swift scripts/make-tutorial.swift gif      # docs/images/tutorial/bose-shortcut.gif (540x540)
+swift scripts/make-tutorial.swift video    # docs/images/tutorial/bose-shortcut.mp4 (1080x1080, 30 fps, H.264; needs ffmpeg)
 ```
 
 The hand was generated once with Gemini "Nano Banana 2" (`gemini-3.1-flash-image`) as line art and is stored in `docs/images/tutorial/assets/hand-source.png`. The script makes its background transparent; everything else is drawn in code.
