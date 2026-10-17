@@ -4,7 +4,7 @@ Technical reference for contributors and the curious. The product overview is in
 
 Tested on macOS 26.5.1 with QC Ultra 2 firmware 10.12.12.
 
-### Muting (Core Audio)
+## Muting (Core Audio)
 
 - **Writes**: for each input device the app writes `kAudioDevicePropertyMute = 1` (input scope). When a device has no usable mute control, it sets every settable input volume element to 0 instead.
 - **Read-back**: every write is read back from the driver for up to 300 ms. A device counts as muted only when the driver reports it.
@@ -20,7 +20,7 @@ Tested on macOS 26.5.1 with QC Ultra 2 firmware 10.12.12.
 - **Persistence**: pre-mute values are saved in `~/Library/Application Support/Bose-Mute-Microphone/mute-snapshot.json`. If the app crashes while muted, the next launch resumes muted mode and can restore. Quitting always restores.
 - **No automatic muting.** The app never mutes at launch.
 
-### The Bose Shortcut
+## The Bose Shortcut
 
 The Shortcut is **not** a HID key or a media command. With *voice control* selected, the headset sends the HFP **voice-recognition request (`AT+BVRA`)**. macOS's `bluetoothd` owns the HFP link and passes the request to Siri. No public API lets a third-party app receive or intercept it.
 
@@ -34,7 +34,7 @@ The app **watches** the `bluetoothd` unified-log line that records it, through `
 - **Debounce**: 1.5 s, measured from the time the log data arrives.
 - **Strict parsing.** A full Bluetooth address must follow the marker. The `log stream` header contains the marker text itself and once caused a false toggle.
 
-### Why Siri must stay on
+## Why Siri must stay on
 
 Every Shortcut press makes macOS start Siri, and that cannot be blocked from an app. The headset then waits for that voice session to end.
 
@@ -55,7 +55,7 @@ Only Bose presses trigger this; Siri started any other way is left alone.
 
 Tested: four presses in a row toggled mute → unmute → mute → unmute, and Siri quit cleanly each time.
 
-### Start with the Mac
+## Start with the Mac
 
 On first launch the app calls `SMAppService.mainApp.register()`. It then appears in System Settings › General › Login Items, and the menu checkbox toggles it. A user who turns it off stays off.
 
