@@ -15,11 +15,23 @@ Tested on macOS 26.5.1 with QC Ultra 2 firmware 10.12.12. The full investigation
 
 ## Quick start
 
+**Download** the latest `Bose-Mute-Microphone-x.y.z.dmg` from [Releases](https://github.com/BrOrlandi/Bose-Mute-Microphone/releases). Open it, drag the app to **Applications** and launch it.
+
+The app is ad-hoc signed, not notarized, so macOS blocks it on first launch:
+
+1. Open it once and dismiss the warning.
+2. Go to System Settings › Privacy & Security.
+3. Click **Open Anyway**.
+
+You only need to do this once. On first launch the app registers itself as a Login Item.
+
+**From source:**
+
 ```sh
 ./scripts/install.sh
 ```
 
-This builds the app, copies it to `~/Applications/Bose-Mute-Microphone.app` and launches it. On first launch the app registers itself as a Login Item.
+This builds the app, copies it to `~/Applications/Bose-Mute-Microphone.app` and launches it.
 
 Then set up the headset and the Mac:
 
@@ -162,6 +174,7 @@ Resources/                 Info.plist, AppIcon.icns, AppIcon-1024.png
 scripts/
   build-app.sh             release build → build/Bose-Mute-Microphone.app (ad-hoc signed)
   install.sh               build + install to ~/Applications + relaunch
+  make-dmg.sh              release build → build/Bose-Mute-Microphone-<version>.dmg
   make-icon.swift          draws the icon with Core Graphics → AppIcon.icns
   make-tutorial.swift      draws the Shortcut tutorial (black-and-white line art) → docs/images/tutorial
 docs/DIAGNOSTICO.md        hardware/driver investigation with log evidence
@@ -176,6 +189,7 @@ swift test                        # unit tests (toggle, restore, drift, devices,
 swift build                       # debug build of app + CLI
 ./scripts/build-app.sh            # release .app in build/
 ./scripts/install.sh              # install to ~/Applications and relaunch (restores mics first)
+./scripts/make-dmg.sh             # release build packed as build/Bose-Mute-Microphone-<version>.dmg
 swift scripts/make-icon.swift     # regenerate the icon after changing the drawing
 ```
 
@@ -210,3 +224,13 @@ Settings are stored in `defaults` domain `local.brunoorlandi.BoseMuteMicrophone`
 rm -rf ~/Applications/Bose-Mute-Microphone.app ~/Library/Application\ Support/Bose-Mute-Microphone
 defaults delete local.brunoorlandi.BoseMuteMicrophone
 ```
+
+## Releases
+
+Versions follow semantic versioning; changes are listed in [CHANGELOG.md](CHANGELOG.md). Each release is tagged `vX.Y.Z` and published on GitHub with the DMG attached.
+
+## License
+
+[MIT](LICENSE).
+
+Not affiliated with, endorsed by, or sponsored by Bose Corporation. "Bose" and "QuietComfort" are trademarks of Bose Corporation, used here only to describe the hardware this app works with.

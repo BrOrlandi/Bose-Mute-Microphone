@@ -1,0 +1,32 @@
+{
+  "manifestVersion": 1,
+  "commitConvention": "conventional",
+  "bump": { "policy": "conventional-commits", "cadence": "per-release", "confirm": true },
+  "apps": [
+    {
+      "id": "macos",
+      "label": "Bose-Mute-Microphone (macOS menu bar app)",
+      "kind": "macos",
+      "version": {
+        "anchor": "tag",
+        "tagPrefix": "v",
+        "annotatedTag": true,
+        "files": [
+          { "path": "Resources/Info.plist", "format": "plist", "key": "CFBundleShortVersionString", "kind": "semver" },
+          { "path": "Resources/Info.plist", "format": "plist", "key": "CFBundleVersion", "kind": "counter" }
+        ]
+      },
+      "changelogs": [
+        { "path": "CHANGELOG.md", "format": "keep-a-changelog", "audience": "public", "language": "en", "detail": "full", "dateFormat": "YYYY-MM-DD" }
+      ],
+      "build": [
+        { "cmd": "./scripts/make-dmg.sh", "artifact": "build/Bose-Mute-Microphone-{version}.dmg" }
+      ],
+      "publish": [
+        { "channel": "git-tag" },
+        { "channel": "github-release", "notesFrom": "CHANGELOG.md", "assets": ["build/Bose-Mute-Microphone-{version}.dmg"], "latest": true }
+      ],
+      "docs": ["README.md#development", "CLAUDE.md#release--changelog"]
+    }
+  ]
+}
