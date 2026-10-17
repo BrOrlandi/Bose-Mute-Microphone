@@ -4,16 +4,11 @@
 //   swift scripts/make-tutorial.swift slides   -> docs/images/tutorial/slide-N.png (1080x1080)
 //   swift scripts/make-tutorial.swift gif      -> docs/images/tutorial/bose-shortcut.gif (540x540)
 //   swift scripts/make-tutorial.swift video    -> docs/images/tutorial/bose-shortcut.mp4 (1080x1080, 30 fps, needs ffmpeg)
-//   add --away to any mode for the head-turned-away version with the mute HUD (files end in -away)
 import AppKit
 import ImageIO
 import UniformTypeIdentifiers
 
 let W: CGFloat = 1080, H: CGFloat = 1080
-/// `--away`: head turned away from the camera (facing 4 o'clock with the camera at 12), drawn as a
-/// silhouette, plus the mute/unmute HUD. Outputs get a `-away` suffix; the profile version is kept.
-let away = CommandLine.arguments.contains("--away")
-let suffix = away ? "-away" : ""
 let ink = NSColor(white: 0.08, alpha: 1)        // text, strip, emphasis
 let line = NSColor(white: 0.42, alpha: 1)       // headphone outlines
 let faint = NSColor(white: 0.72, alpha: 1)      // head outline
@@ -31,8 +26,6 @@ struct Scene {
     var speaking = true          // voice waves from the mouth
     var time: CGFloat = 0        // drives the voice/level animation
     var slash: CGFloat = 0       // 0 = mic icon intact, 1 = fully crossed out
-    var hudPhase: CGFloat? = nil // 0...1 while the mute/unmute HUD animates
-    var hudMute = true           // HUD shows muting (slash draws in) or unmuting (slash goes away)
     enum Cue { case down, up }
     /// What the microphone picks up: follows the voice unless muted.
     var level: CGFloat { speaking ? (1 - slash) * (0.35 + 0.65 * abs(sin(time * 1.7) * sin(time * 0.6 + 1))) : 0 }
@@ -57,22 +50,6 @@ func stroke(_ ctx: CGContext, _ path: CGPath, _ color: NSColor, _ width: CGFloat
 func ellipse(_ c: CGPoint, _ rx: CGFloat, _ ry: CGFloat, rotation: CGFloat = 0) -> CGPath {
     var t = CGAffineTransform(translationX: c.x, y: c.y).rotated(by: rotation)
     return CGPath(ellipseIn: CGRect(x: -rx, y: -ry, width: rx * 2, height: ry * 2), transform: &t)
-}
-
-/// Head turned away from the camera: back of the head, the cheek line and the jaw only.
-func awayHeadPath() -> CGPath {
-    let p = CGMutablePath()
-    p.move(to: CGPoint(x: 700, y: 720))
-    p.addCurve(to: CGPoint(x: 735, y: 520), control1: CGPoint(x: 705, y: 640), control2: CGPoint(x: 725, y: 575))
-    p.addCurve(to: CGPoint(x: 748, y: 330), control1: CGPoint(x: 750, y: 470), control2: CGPoint(x: 760, y: 390))
-    p.addCurve(to: CGPoint(x: 560, y: 140), control1: CGPoint(x: 735, y: 210), control2: CGPoint(x: 660, y: 140))
-    p.addCurve(to: CGPoint(x: 418, y: 290), control1: CGPoint(x: 470, y: 140), control2: CGPoint(x: 420, y: 215))
-    p.addCurve(to: CGPoint(x: 404, y: 352), control1: CGPoint(x: 414, y: 315), control2: CGPoint(x: 398, y: 335))
-    p.addCurve(to: CGPoint(x: 400, y: 450), control1: CGPoint(x: 410, y: 380), control2: CGPoint(x: 392, y: 420))
-    p.addCurve(to: CGPoint(x: 430, y: 555), control1: CGPoint(x: 405, y: 490), control2: CGPoint(x: 410, y: 530))
-    p.addCurve(to: CGPoint(x: 500, y: 600), control1: CGPoint(x: 450, y: 580), control2: CGPoint(x: 475, y: 598))
-    p.addCurve(to: CGPoint(x: 505, y: 720), control1: CGPoint(x: 510, y: 640), control2: CGPoint(x: 505, y: 690))
-    return p
 }
 
 /// Side profile facing left (viewer sees the person's right side).
@@ -196,7 +173,7 @@ func drawHand(_ ctx: CGContext, tip: CGPoint) {
 
 /// Voice coming out of the mouth: arcs that travel outwards and fade.
 func drawVoice(_ ctx: CGContext, time: CGFloat) {
-    let mouth = away ? CGPoint(x: 398, y: 500) : CGPoint(x: 330, y: 520)
+    let mouth = CGPoint(x: 330, y: 520)
     for i in 0..<3 {
         let phase = (time * 0.9 + CGFloat(i) / 3).truncatingRemainder(dividingBy: 1)
         let r = 28 + phase * 110
@@ -204,48 +181,6 @@ func drawVoice(_ ctx: CGContext, time: CGFloat) {
         arc.addArc(center: mouth, radius: r, startAngle: .pi * 0.78, endAngle: .pi * 1.18, clockwise: false)
         stroke(ctx, arc, ink.withAlphaComponent(0.85 * (1 - phase)), 3.2)
     }
-}
-
-/// macOS-style HUD that pops in when mute changes: the slash draws in (mute) or goes away and the
-/// mic "opens" with sound arcs (unmute); fade + scale in and out.
-func drawHUD(_ ctx: CGContext, mute: Bool, phase: CGFloat) {
-    let center = CGPoint(x: 215, y: 250)
-    let appear = ease(phase / 0.18)
-    let leave = ease((phase - 0.78) / 0.22)
-    let alpha = appear * (1 - leave)
-    guard alpha > 0.01 else { return }
-    let overshoot = phase < 0.18 ? 0.6 + 0.48 * appear : 1.08 - 0.08 * ease((phase - 0.18) / 0.14)
-    let scale = overshoot - 0.06 * leave
-    let slashT = ease((phase - 0.15) / 0.3)
-    let slash = mute ? slashT : 1 - slashT
-
-    ctx.saveGState()
-    ctx.setAlpha(alpha)
-    ctx.beginTransparencyLayer(auxiliaryInfo: nil)
-    ctx.translateBy(x: center.x, y: center.y)
-    ctx.scaleBy(x: scale, y: scale)
-    let box = CGRect(x: -100, y: -100, width: 200, height: 200)
-    ctx.saveGState()
-    ctx.setShadow(offset: CGSize(width: 0, height: 8), blur: 24, color: NSColor(white: 0, alpha: 0.18).cgColor)
-    stroke(ctx, CGPath(roundedRect: box, cornerWidth: 40, cornerHeight: 40, transform: nil), NSColor(white: 0.86, alpha: 1), 2,
-           fill: NSColor(white: 0.97, alpha: 1))
-    ctx.restoreGState()
-    micGlyph(ctx, origin: CGPoint(x: -41, y: -70), h: 98, slash: slash)
-    if !mute {   // the mic "opens": sound arcs on both sides
-        let open = ease((phase - 0.4) / 0.25) * (1 - leave)
-        for side in [-1.0, 1.0] as [CGFloat] {
-            for k in 0..<2 {
-                let r = 52 + CGFloat(k) * 18
-                let arc = CGMutablePath()
-                let mid: CGFloat = side < 0 ? .pi : 0
-                arc.addArc(center: CGPoint(x: 0, y: -24), radius: r, startAngle: mid - 0.45, endAngle: mid + 0.45, clockwise: false)
-                stroke(ctx, arc, ink.withAlphaComponent(open), 4)
-            }
-        }
-    }
-    text(mute ? "Muted" : "Mic on", at: CGPoint(x: -100, y: 50), size: 26, weight: .semibold, color: ink, width: 200, align: .center)
-    ctx.endTransparencyLayer()
-    ctx.restoreGState()
 }
 
 func drawTouchPoint(_ ctx: CGContext, scene: Scene) {
@@ -319,10 +254,8 @@ func drawMenuBar(_ ctx: CGContext, scene: Scene) {
     }
 }
 
-func text(_ s: String, at p: CGPoint, size: CGFloat, weight: NSFont.Weight, color: NSColor, width: CGFloat,
-          align: NSTextAlignment = .natural) {
+func text(_ s: String, at p: CGPoint, size: CGFloat, weight: NSFont.Weight, color: NSColor, width: CGFloat) {
     let style = NSMutableParagraphStyle()
-    style.alignment = align
     style.lineSpacing = size * 0.28
     NSAttributedString(string: s, attributes: [
         .font: NSFont.systemFont(ofSize: size, weight: weight), .foregroundColor: color, .paragraphStyle: style,
@@ -352,7 +285,7 @@ func render(_ scene: Scene, scale: CGFloat) -> CGImage {
     ctx.saveGState()
     ctx.addRect(CGRect(x: 0, y: 0, width: W, height: 640)); ctx.clip()
     ctx.translateBy(x: 0, y: -40)   // art sits a little higher now that the menu bar is below it
-    stroke(ctx, away ? awayHeadPath() : headPath(), faint, 3)
+    stroke(ctx, headPath(), faint, 3)
     if scene.speaking { drawVoice(ctx, time: scene.time) }
     drawHeadphones(ctx)
     if let cue = scene.cue { drawCue(ctx, cue, phase: scene.cuePhase) }
@@ -361,7 +294,6 @@ func render(_ scene: Scene, scale: CGFloat) -> CGImage {
         let x = touchPoint.x + 16 + (1 - ease(scene.finger)) * 320
         drawHand(ctx, tip: CGPoint(x: x, y: touchPoint.y))
     }
-    if away, let phase = scene.hudPhase { drawHUD(ctx, mute: scene.hudMute, phase: phase) }
     let fade = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: [
         NSColor(white: 1, alpha: 0).cgColor, NSColor(white: 1, alpha: 1).cgColor,
     ] as CFArray, locations: [0, 1])!
@@ -390,7 +322,7 @@ func writePNG(_ image: CGImage, to path: String) {
 let slides: [Scene] = [
     Scene(step: 1, time: 0.9),
     Scene(step: 2, finger: 1, hold: 0.65, time: 1.6),
-    Scene(step: 3, muted: true, cue: .down, cuePhase: 1, time: 2.2, slash: 1, hudPhase: 0.6, hudMute: true),
+    Scene(step: 3, muted: true, cue: .down, cuePhase: 1, time: 2.2, slash: 1),
     Scene(step: 4, finger: 1, hold: 0.65, muted: true, time: 3.1, slash: 1),
 ]
 
@@ -408,28 +340,24 @@ func timeline(sub: Int = 1) -> [(Scene, Double)] {
     steps(8) { i in add(Scene(step: 2, finger: min(1, (i + 1) / 8))) }
     steps(21) { i in add(Scene(step: 2, finger: 1, hold: min(1, i / 20))) }
     steps(34) { i in   // slash draws in, falling tone, hand leaves, voice continues but nothing is picked up
-        var scene = Scene(step: 3, finger: max(0, 1 - i / 7), muted: true, cue: .down,
-                          cuePhase: min(1, i / 12), slash: min(1, (i + 1) / 7))
-        if i < 18 { scene.hudPhase = i / 18; scene.hudMute = true }
-        add(scene)
+        add(Scene(step: 3, finger: max(0, 1 - i / 7), muted: true, cue: .down,
+                  cuePhase: min(1, i / 12), slash: min(1, (i + 1) / 7)))
     }
     steps(8) { i in add(Scene(step: 4, finger: min(1, (i + 1) / 8), muted: true, slash: 1)) }
     steps(21) { i in add(Scene(step: 4, finger: 1, hold: min(1, i / 20), muted: true, slash: 1)) }
     steps(30) { i in   // slash goes away, rising tone, the mic picks up the voice again
-        var scene = Scene(step: 4, finger: max(0, 1 - i / 7), muted: false, cue: .up,
-                          cuePhase: min(1, i / 12), slash: max(0, 1 - (i + 1) / 7))
-        if i < 18 { scene.hudPhase = i / 18; scene.hudMute = false }
-        add(scene)
+        add(Scene(step: 4, finger: max(0, 1 - i / 7), muted: false, cue: .up,
+                  cuePhase: min(1, i / 12), slash: max(0, 1 - (i + 1) / 7)))
     }
     return f
 }
 
 let outDir = "docs/images/tutorial"
 try FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
-let mode = CommandLine.arguments.dropFirst().first(where: { !$0.hasPrefix("--") }) ?? "slides"
+let mode = CommandLine.arguments.dropFirst().first ?? "slides"
 if mode == "slides" {
     for (i, scene) in slides.enumerated() {
-        let path = "\(outDir)/slide-\(i + 1)\(suffix).png"
+        let path = "\(outDir)/slide-\(i + 1).png"
         writePNG(render(scene, scale: 1), to: path)
         print(path)
     }
@@ -444,7 +372,7 @@ if mode == "slides" {
     for (i, (scene, _)) in frames.enumerated() {
         writePNG(render(scene, scale: 1), to: tmp.appendingPathComponent(String(format: "f%05d.png", i)).path)
     }
-    let path = "\(outDir)/bose-shortcut\(suffix).mp4"
+    let path = "\(outDir)/bose-shortcut.mp4"
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
     p.arguments = ["ffmpeg", "-y", "-loglevel", "error", "-framerate", "\(fps)", "-i", tmp.appendingPathComponent("f%05d.png").path,
@@ -454,7 +382,7 @@ if mode == "slides" {
     print(p.terminationStatus == 0 ? "\(path) (\(frames.count) frames)" : "ffmpeg failed")
 } else {
     let frames = timeline()
-    let path = "\(outDir)/bose-shortcut\(suffix).gif"
+    let path = "\(outDir)/bose-shortcut.gif"
     let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, UTType.gif.identifier as CFString, frames.count, nil)!
     CGImageDestinationSetProperties(dest, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
     for (scene, delay) in frames {
