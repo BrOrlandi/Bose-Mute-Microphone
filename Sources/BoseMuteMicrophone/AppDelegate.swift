@@ -61,7 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         bose.onPress = { [weak self] address in
             guard let self else { return }
             if self.cancelSiriEnabled { self.siriCanceller.arm() }
-            self.toggle(source: "Bose (HFP voice recognition \(address))")
+            self.toggle(source: "Bose (HFP voice recognition \(address))", fromBose: true)
         }
         bose.onStateChange = { [weak self] state in
             self?.log.add("Monitor Bose: \(state)")
@@ -70,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         bose.onDiagnostic = { [weak self] message in
             self?.log.add("HFP: \(message)")
             self?.siriCanceller.observe(message)
+            self?.cueAfterVoiceLink(message)
         }
         if boseEnabled { bose.start() }
 
@@ -111,7 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Actions
 
-    private func toggle(source: String) {
+    private func toggle(source: String, fromBose: Bool = false) {
         let wasMuted = controller.isMuted
         controller.toggle()
         let status = controller.status
@@ -119,13 +120,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let issues = controller.lastRestoreIssues
             log.add("UNMUTE via \(source). " + (issues.isEmpty ? "Restauração verificada." :
                 "Problemas: " + issues.map { "\($0.name): \($0.reason)" }.joined(separator: " | ")))
-            if soundsEnabled { play(unmuteSound) }
+            if soundsEnabled { cue(unmuteSound, fromBose: fromBose) }
         } else {
             log.add("MUTE via \(source). \(describe(status)). " + deviceSummary())
-            if soundsEnabled { play(muteSound) }
+            if soundsEnabled { cue(muteSound, fromBose: fromBose) }
         }
         refreshEnforceTimer()
         updateIcon()
+    }
+
+    // MARK: Cues
+
+    /// A Bose press also makes macOS open an HFP voice link for Siri, which switches the headset
+    /// audio route and closes again ~1 s later. A cue played during that switch is lost (observed for
+    /// mute, which also spends time verifying devices before the cue). So for Bose presses the cue
+    /// waits until bluetoothd reports the voice link closed, with a fallback timeout.
+    private var pendingCue: NSSound?
+    private var pendingCueFallback: DispatchWorkItem?
+
+    private func cue(_ sound: NSSound?, fromBose: Bool) {
+        guard fromBose else { play(sound); return }
+        pendingCue = sound
+        pendingCueFallback?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.firePendingCue(reason: "tempo limite") }
+        pendingCueFallback = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
+    }
+
+    private func cueAfterVoiceLink(_ message: String) {
+        guard pendingCue != nil, message.contains("Received voice disconnection event") else { return }
+        pendingCueFallback?.cancel()
+        // let the route settle back to the normal (A2DP) output before playing
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.firePendingCue(reason: "canal de voz fechado") }
+    }
+
+    private func firePendingCue(reason: String) {
+        guard let sound = pendingCue else { return }
+        pendingCue = nil
+        pendingCueFallback?.cancel()
+        pendingCueFallback = nil
+        play(sound)
+        log.add("Som tocado após \(reason).")
     }
 
     private func play(_ sound: NSSound?) {
